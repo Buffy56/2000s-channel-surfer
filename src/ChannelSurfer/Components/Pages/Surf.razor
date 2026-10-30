@@ -23,6 +23,7 @@
             <div class="stream-error glow">⚠ @_error</div>
         }
         <Banner Channel="Cur" Now="_now" Next="_next" Progress="_progress" Visible="_bannerVisible" />
+        <div class="guide-hint" @ref="_hint">Press <b>G</b> for Guide</div>
         @if (_entry.Length > 0)
         {
             <div class="entry glow">@_entry</div>
@@ -33,6 +34,7 @@
 @code {
     private ElementReference _root;
     private ElementReference _video;
+    private ElementReference _hint;
     private DotNetObjectReference<Surf>? _ref;
     private IReadOnlyList<Channel> _channels = Array.Empty<Channel>();
     private int _index;
@@ -74,6 +76,7 @@
         {
             await TuneAsync();
             await _root.FocusAsync();
+            await JS.InvokeVoidAsync("hlsInterop.guideHint", _root, _hint);
         }
     }
 

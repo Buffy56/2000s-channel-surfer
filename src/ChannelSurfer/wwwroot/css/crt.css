@@ -117,6 +117,25 @@ a { color: var(--cyan); }
 .bar { height: 8px; border-radius: 5px; background: #0a124a; border: 1px solid #42d; margin-top: 10px; overflow: hidden; }
 .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #53e0ff, #1b7cff); }
 
+/* "Press G for Guide" hint — fades in on mouse move, out after a beat */
+.guide-hint {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    z-index: 20;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: rgba(11, 21, 87, .85);
+    border: 2px solid #6c87ff;
+    font: 700 15px Arial;
+    color: #cfe;
+    opacity: 0;
+    transition: opacity .3s;
+    pointer-events: none;
+}
+.guide-hint.show { opacity: 1; }
+.guide-hint b { color: var(--sel); }
+
 /* ---------------- Guide ---------------- */
 .guide-page {
     position: fixed;

@@ -73,6 +73,18 @@ window.hlsInterop = (function () {
         fullscreen: function () {
             if (document.fullscreenElement) { document.exitFullscreen(); }
             else { document.documentElement.requestFullscreen().catch(function () {}); }
+        },
+
+        // Flash a "Press G for Guide" hint on mouse move, then fade it out.
+        // The listener lives on the surf element, so it dies when the page navigates away.
+        guideHint: function (surfEl, hintEl) {
+            if (!surfEl || !hintEl) return;
+            let timer;
+            surfEl.addEventListener('mousemove', function () {
+                hintEl.classList.add('show');
+                clearTimeout(timer);
+                timer = setTimeout(function () { hintEl.classList.remove('show'); }, 2500);
+            });
         }
     };
 })();
