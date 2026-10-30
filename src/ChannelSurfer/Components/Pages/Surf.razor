@@ -1,0 +1,165 @@
+@page "/"
+@rendermode InteractiveServer
+@inject ContentService Content
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Channel Surfer</PageTitle>
+
+<div class="surf" tabindex="0" @ref="_root" @onkeydown="OnKeyDown" @onkeydown:preventDefault="true">
+    @if (_channels.Count == 0)
+    {
+        <div class="noch glow">
+            NO CHANNELS
+            <span>Set your playlist in <a href="/settings">Settings</a></span>
+        </div>
+    }
+    else
+    {
+        <video class="tv-video" @ref="_video" autoplay playsinline></video>
+        @if (_error is not null)
+        {
+            <div class="stream-error glow">⚠ @_error</div>
+        }
+        <Banner Channel="Cur" Now="_now" Next="_next" Progress="_progress" Visible="_bannerVisible" />
+        @if (_entry.Length > 0)
+        {
+            <div class="entry glow">@_entry</div>
+        }
+    }
+</div>
+
+@code {
+    private ElementReference _root;
+    private ElementReference _video;
+    private DotNetObjectReference<Surf>? _ref;
+    private IReadOnlyList<Channel> _channels = Array.Empty<Channel>();
+    private int _index;
+    private Programme? _now, _next;
+    private double _progress;
+    private bool _bannerVisible;
+    private string? _error;
+    private string _entry = "";
+    private System.Timers.Timer? _bannerTimer;
+
+    private Channel? Cur => _channels.Count > 0 ? _channels[_index] : null;
+
+    protected override void OnInitialized()
+    {
+        _channels = Content.Current.Channels;
+        _ref = DotNetObjectReference.Create(this);
+        _bannerTimer = new System.Timers.Timer(5000) { AutoReset = false };
+        _bannerTimer.Elapsed += (_, _) => InvokeAsync(() =>
+        {
+            _bannerVisible = false;
+            StateHasChanged();
+        });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _channels.Count > 0)
+        {
+            await TuneAsync();
+            await _root.FocusAsync();
+        }
+    }
+
+    private async Task TuneAsync()
+    {
+        _error = null;
+        ComputeNowNext();
+        ShowBanner();
+        var url = "/proxy/stream?u=" + Uri.EscapeDataString(Cur!.StreamUrl);
+        await JS.InvokeVoidAsync("hlsInterop.attach", _video, url, _ref);
+        StateHasChanged();
+    }
+
+    private void ComputeNowNext()
+    {
+        (_now, _next) = Content.Current.NowNext(Cur!, DateTimeOffset.Now);
+        _progress = _now is not null ? Lineup.Progress(_now, DateTimeOffset.Now) : 0;
+    }
+
+    private void ShowBanner()
+    {
+        _bannerVisible = true;
+        _bannerTimer!.Stop();
+        _bannerTimer.Start();
+    }
+
+    private async Task Flip(int delta)
+    {
+        _index = (_index + delta + _channels.Count) % _channels.Count;
+        await TuneAsync();
+    }
+
+    private async Task TuneToNumber(int number)
+    {
+        for (var i = 0; i < _channels.Count; i++)
+        {
+            if (_channels[i].Number == number)
+            {
+                _index = i;
+                await TuneAsync();
+                return;
+            }
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "+":
+            case "ArrowUp":
+            case "PageUp":
+                await Flip(1);
+                break;
+            case "-":
+            case "ArrowDown":
+            case "PageDown":
+                await Flip(-1);
+                break;
+            case "g":
+            case "G":
+                Nav.NavigateTo("/guide");
+                break;
+            case "f":
+            case "F":
+                await JS.InvokeVoidAsync("hlsInterop.fullscreen");
+                break;
+            case "Escape":
+                _bannerVisible = false;
+                _entry = "";
+                break;
+            case "Enter":
+                if (_entry.Length > 0 && int.TryParse(_entry, out var n))
+                {
+                    _entry = "";
+                    await TuneToNumber(n);
+                }
+                break;
+            default:
+                if (e.Key.Length == 1 && char.IsDigit(e.Key[0]))
+                {
+                    _entry += e.Key;
+                }
+                break;
+        }
+    }
+
+    [JSInvokable]
+    public Task OnStreamError(string details)
+    {
+        _error = $"Can't play this channel ({details})";
+        return InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _bannerTimer?.Dispose();
+        _ref?.Dispose();
+    }
+}

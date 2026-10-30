@@ -1,0 +1,32 @@
+@* Chunky channel banner that slides up on each flip. *@
+
+<div class="banner @(Visible ? "show" : "")">
+    <div class="chbox">
+        @if (!string.IsNullOrEmpty(Channel?.LogoUrl))
+        {
+            <img class="logo" src="@LogoProxy(Channel!.LogoUrl!)" alt="" />
+        }
+        <div class="chnum glow">@Channel?.Number</div>
+        <div class="chname">@Channel?.Name</div>
+    </div>
+    <div class="meta">
+        <div class="now glow">@(Now?.Title ?? "No info")</div>
+        @if (Next is not null)
+        {
+            <div class="next">Next @Next.Start.ToLocalTime().ToString("h:mm tt") ▸ @Next.Title</div>
+        }
+        <div class="bar"><i style="width:@ProgressPercent%"></i></div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public Channel? Channel { get; set; }
+    [Parameter] public Programme? Now { get; set; }
+    [Parameter] public Programme? Next { get; set; }
+    [Parameter] public double Progress { get; set; }
+    [Parameter] public bool Visible { get; set; }
+
+    private int ProgressPercent => (int)Math.Round(Math.Clamp(Progress, 0, 1) * 100);
+
+    private static string LogoProxy(string url) => "/proxy/logo?u=" + Uri.EscapeDataString(url);
+}
