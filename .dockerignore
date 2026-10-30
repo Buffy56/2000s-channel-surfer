@@ -1,0 +1,8 @@
+**/bin
+**/obj
+.git
+.superpowers
+.vs
+.DS_Store
+config
+docs
