@@ -1,0 +1,62 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject SettingsService SettingsSvc
+@inject ContentService Content
+
+<PageTitle>Settings</PageTitle>
+
+<div class="settings-page">
+    <h1 class="glow">Settings</h1>
+
+    <EditForm Model="_model" OnValidSubmit="SaveAsync">
+        <label class="fld">Playlist (m3u) — file path or URL
+            <InputText @bind-Value="_model.PlaylistSource" />
+        </label>
+        <label class="fld">Guide (XMLTV) — file path or URL
+            <InputText @bind-Value="_model.XmltvSource" />
+        </label>
+        <label class="fld">Refresh every (minutes)
+            <InputNumber @bind-Value="_model.RefreshMinutes" />
+        </label>
+        <label class="chk">
+            <InputCheckbox @bind-Value="_model.CrtEnabled" /> CRT effect
+        </label>
+        <button class="btn" type="submit" disabled="@_busy">@(_busy ? "Reloading…" : "Save & Reload")</button>
+    </EditForm>
+
+    <div class="status">
+        @if (_saved)
+        {
+            <p class="ok">Saved.</p>
+        }
+        <p>Channels loaded: <b>@Content.Current.Channels.Count</b></p>
+        @if (Content.LastLoaded != default)
+        {
+            <p>Last loaded: @Content.LastLoaded.ToLocalTime().ToString("g")</p>
+        }
+        @if (Content.LastError is { } err)
+        {
+            <p class="err">Last error: @err</p>
+        }
+    </div>
+
+    <p><a href="/">◂ Back to TV</a></p>
+</div>
+
+@code {
+    private AppSettings _model = new();
+    private bool _busy;
+    private bool _saved;
+
+    protected override void OnInitialized() => _model = SettingsSvc.Get();
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _saved = false;
+        SettingsSvc.Save(_model);
+        await Content.ReloadAsync(); // keeps the old lineup if the new sources fail
+        _busy = false;
+        _saved = true;
+    }
+}
