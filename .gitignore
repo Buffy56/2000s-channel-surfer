@@ -5,3 +5,6 @@ obj/
 .DS_Store
 appsettings.*.local.json
 config/
+
+# Personal notes, intentionally untracked
+/HOW-IT-WORKS.md
