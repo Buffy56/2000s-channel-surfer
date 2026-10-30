@@ -83,7 +83,8 @@
         ComputeNowNext();
         ShowBanner();
         var url = "/proxy/stream?u=" + Uri.EscapeDataString(Cur!.StreamUrl);
-        await JS.InvokeVoidAsync("hlsInterop.attach", _video, url, _ref);
+        var kind = Cur.StreamUrl.Split('?')[0].EndsWith(".ts", StringComparison.OrdinalIgnoreCase) ? "ts" : "hls";
+        await JS.InvokeVoidAsync("hlsInterop.attach", _video, url, kind, _ref);
         StateHasChanged();
     }
 

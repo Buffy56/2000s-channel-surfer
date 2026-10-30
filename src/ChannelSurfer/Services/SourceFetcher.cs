@@ -23,7 +23,9 @@ public class SourceFetcher(HttpClient http)
             bytes = output.ToArray();
         }
 
-        return Encoding.UTF8.GetString(bytes);
+        // Strip a leading UTF-8 BOM — it survives GetString and breaks XDocument.Parse.
+        var offset = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
+        return Encoding.UTF8.GetString(bytes, offset, bytes.Length - offset);
     }
 
     private static bool IsLocalPath(string s)

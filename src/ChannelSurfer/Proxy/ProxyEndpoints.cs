@@ -19,26 +19,44 @@ public static class ProxyEndpoints
     {
         if (!TryAllowedHttp(u, out var uri)) return Results.BadRequest("invalid url");
 
-        using var resp = await http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted);
-
-        // Redirects may land on a different host: validate and rewrite against the FINAL url.
-        var finalUri = resp.RequestMessage?.RequestUri ?? uri;
-        if (!IsAllowedHost(finalUri)) return Results.BadRequest("blocked host");
-        if (DeclaresTooLarge(resp)) return Results.StatusCode(StatusCodes.Status502BadGateway);
-
-        var contentType = resp.Content.Headers.ContentType?.MediaType ?? "";
-        // ponytail: buffer each segment in memory (segments are small); stream it if memory ever matters.
-        var bytes = await ReadCappedAsync(resp, ctx.RequestAborted);
-        if (bytes is null) return Results.StatusCode(StatusCodes.Status502BadGateway);
-
-        if (IsPlaylist(contentType, bytes))
+        var resp = await http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ctx.RequestAborted);
+        try
         {
-            var rewritten = HlsRewriter.Rewrite(Encoding.UTF8.GetString(bytes), finalUri,
-                seg => "/proxy/stream?u=" + Uri.EscapeDataString(seg.ToString()));
-            return Results.Text(rewritten, "application/vnd.apple.mpegurl");
-        }
+            // Redirects may land on a different host: validate against the FINAL url.
+            var finalUri = resp.RequestMessage?.RequestUri ?? uri;
+            if (!IsAllowedHost(finalUri)) return Results.BadRequest("blocked host");
 
-        return Results.Bytes(bytes, string.IsNullOrEmpty(contentType) ? "application/octet-stream" : contentType);
+            var contentType = resp.Content.Headers.ContentType?.MediaType ?? "";
+
+            // An HLS playlist is small and must be rewritten so its segment URIs come back through us.
+            if (IsPlaylist(contentType, finalUri))
+            {
+                if (DeclaresTooLarge(resp)) return Results.StatusCode(StatusCodes.Status502BadGateway);
+                var bytes = await ReadCappedAsync(resp, ctx.RequestAborted);
+                if (bytes is null) return Results.StatusCode(StatusCodes.Status502BadGateway);
+                var rewritten = HlsRewriter.Rewrite(Encoding.UTF8.GetString(bytes), finalUri,
+                    seg => "/proxy/stream?u=" + Uri.EscapeDataString(seg.ToString()));
+                return Results.Text(rewritten, "application/vnd.apple.mpegurl");
+            }
+
+            // Media — HLS segments and live MPEG-TS (ErsatzTV) — streams straight through,
+            // never buffered: a live .ts never ends.
+            ctx.Response.ContentType = string.IsNullOrEmpty(contentType) ? "application/octet-stream" : contentType;
+            await using var stream = await resp.Content.ReadAsStreamAsync(ctx.RequestAborted);
+            try
+            {
+                await stream.CopyToAsync(ctx.Response.Body, ctx.RequestAborted);
+            }
+            catch (OperationCanceledException)
+            {
+                // Client flipped the channel or navigated away — expected.
+            }
+            return Results.Empty;
+        }
+        finally
+        {
+            resp.Dispose();
+        }
     }
 
     private static async Task<IResult> LogoAsync(string u, HttpClient http, HttpContext ctx)
@@ -54,9 +72,9 @@ public static class ProxyEndpoints
         return Results.Bytes(bytes, resp.Content.Headers.ContentType?.MediaType ?? "image/png");
     }
 
-    private static bool IsPlaylist(string contentType, byte[] bytes)
+    private static bool IsPlaylist(string contentType, Uri uri)
         => contentType.Contains("mpegurl", StringComparison.OrdinalIgnoreCase)
-        || (bytes.Length >= 7 && Encoding.ASCII.GetString(bytes, 0, 7) == "#EXTM3U");
+        || uri.AbsolutePath.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase);
 
     private static bool TryAllowedHttp(string u, out Uri uri)
         => Uri.TryCreate(u, UriKind.Absolute, out uri!)

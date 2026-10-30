@@ -40,6 +40,18 @@ public class ContentServiceTests
     }
 
     [Fact]
+    public async Task Fetch_StripsUtf8Bom()
+    {
+        var path = Path.Combine(Path.GetTempPath(), "cs-" + Guid.NewGuid().ToString("N") + ".xml");
+        var bom = new byte[] { 0xEF, 0xBB, 0xBF };
+        File.WriteAllBytes(path, bom.Concat(Encoding.UTF8.GetBytes("<tv></tv>")).ToArray());
+
+        var text = await new SourceFetcher(new HttpClient()).FetchTextAsync(path, gunzip: false);
+
+        Assert.Equal("<tv></tv>", text); // ordinal: fails if a BOM char survived
+    }
+
+    [Fact]
     public async Task Fetch_GunzipsXmltv()
     {
         var f = WriteTempGzip("<tv></tv>");

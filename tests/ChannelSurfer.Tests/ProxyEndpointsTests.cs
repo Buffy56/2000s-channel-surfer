@@ -85,18 +85,41 @@ public class ProxyEndpointsTests
     }
 
     [Fact]
-    public async Task Stream_RejectsOversizedResponse()
+    public async Task Stream_RejectsOversizedPlaylist()
     {
+        // The size cap guards the buffered playlist branch; media streams through uncapped.
         using var factory = Factory(_ =>
         {
             var resp = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(new byte[1024]) };
+            resp.Content.Headers.ContentType = new("application/vnd.apple.mpegurl");
             resp.Content.Headers.ContentLength = 200L * 1024 * 1024; // declares 200 MB
             return resp;
         });
         var client = factory.CreateClient();
 
-        var resp = await client.GetAsync("/proxy/stream?u=" + Uri.EscapeDataString("http://host/big.ts"));
+        var resp = await client.GetAsync("/proxy/stream?u=" + Uri.EscapeDataString("http://host/big.m3u8"));
 
         Assert.Equal(HttpStatusCode.BadGateway, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Stream_PassesThroughMpegTsBody()
+    {
+        using var factory = Factory(_ =>
+        {
+            var resp = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[] { 0x47, 0x01, 0x02, 0x03 }), // 0x47 = TS sync byte
+            };
+            resp.Content.Headers.ContentType = new("video/mp2t");
+            return resp;
+        });
+        var client = factory.CreateClient();
+
+        var r = await client.GetAsync("/proxy/stream?u=" + Uri.EscapeDataString("http://host/channel/2.ts"));
+
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        Assert.Equal("video/mp2t", r.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(new byte[] { 0x47, 0x01, 0x02, 0x03 }, await r.Content.ReadAsByteArrayAsync());
     }
 }
