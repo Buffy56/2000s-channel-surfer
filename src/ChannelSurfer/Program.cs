@@ -1,10 +1,19 @@
 using ChannelSurfer.Components;
+using ChannelSurfer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Config volume (container sets CONFIG_DIR=/config; dev falls back to ./config).
+var configDir = Environment.GetEnvironmentVariable("CONFIG_DIR")
+    ?? Path.Combine(builder.Environment.ContentRootPath, "config");
+builder.Services.AddSingleton(new SettingsService(configDir));
+builder.Services.AddSingleton(new SourceFetcher(new HttpClient()));
+builder.Services.AddSingleton<ContentService>();
+builder.Services.AddHostedService<ContentRefresher>();
 
 var app = builder.Build();
 
