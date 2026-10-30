@@ -1,4 +1,5 @@
 using ChannelSurfer.Components;
+using ChannelSurfer.Proxy;
 using ChannelSurfer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,7 +12,8 @@ builder.Services.AddRazorComponents()
 var configDir = Environment.GetEnvironmentVariable("CONFIG_DIR")
     ?? Path.Combine(builder.Environment.ContentRootPath, "config");
 builder.Services.AddSingleton(new SettingsService(configDir));
-builder.Services.AddSingleton(new SourceFetcher(new HttpClient()));
+builder.Services.AddSingleton<HttpClient>();
+builder.Services.AddSingleton<SourceFetcher>();
 builder.Services.AddSingleton<ContentService>();
 builder.Services.AddHostedService<ContentRefresher>();
 
@@ -33,4 +35,8 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
+app.MapProxyEndpoints();
+
 app.Run();
+
+public partial class Program { }
