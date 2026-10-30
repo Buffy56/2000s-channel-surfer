@@ -1,0 +1,132 @@
+@page "/guide"
+@rendermode InteractiveServer
+@inject ContentService Content
+@inject NavigationManager Nav
+
+<PageTitle>Guide</PageTitle>
+
+<div class="guide-page" tabindex="0" @ref="_root" @onkeydown="OnKeyDown" @onkeydown:preventDefault="true">
+    @if (_model.Rows.Count == 0)
+    {
+        <div class="noch glow">
+            NO CHANNELS
+            <span>Set your playlist in <a href="/settings">Settings</a></span>
+        </div>
+    }
+    else
+    {
+        <div class="preview">
+            <h3 class="glow">@(Selected?.Title ?? "No info")</h3>
+            <p class="pv-meta">
+                @if (Selected?.Programme is { } p)
+                {
+                    @if (IsNow(p))
+                    {
+                        <span class="pill">NOW</span>
+                    }
+                    <text>@p.Start.ToLocalTime().ToString("h:mm tt")–@p.Stop.ToLocalTime().ToString("h:mm tt") · </text>
+                }
+                @CurrentChannel?.Name (@CurrentChannel?.Number)
+            </p>
+            @if (Selected?.Programme?.Desc is { } d)
+            {
+                <p class="pv-desc">@d</p>
+            }
+        </div>
+
+        <div class="guide-grid" style="--slots:@SlotCount">
+            <div class="ghead">
+                <div class="glow">CHANNEL</div>
+                @foreach (var h in _model.Headers)
+                {
+                    <div>@h.ToLocalTime().ToString("h:mm")</div>
+                }
+            </div>
+            @for (var r = 0; r < _model.Rows.Count; r++)
+            {
+                var row = _model.Rows[r];
+                var rowSelected = r == _row;
+                <div class="grow @(rowSelected ? "rowsel" : "")">
+                    <div class="gch"><b>@row.Channel.Number</b><span>@row.Channel.Name</span></div>
+                    @foreach (var cell in row.Cells)
+                    {
+                        <div class="cell @(rowSelected && InCell(cell) ? "sel" : "")" style="grid-column:span @cell.SpanSlots">
+                            @cell.Title
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private const int SlotCount = 4;
+    private static readonly TimeSpan Slot = TimeSpan.FromMinutes(30);
+
+    private ElementReference _root;
+    private DateTimeOffset _start;
+    private GuideModel _model = GuideModel.Build(
+        Lineup.Build(Array.Empty<Channel>(), Array.Empty<XmltvChannel>(), Array.Empty<Programme>()),
+        DateTimeOffset.Now, SlotCount, Slot);
+    private int _row;
+    private int _slot;
+
+    private Channel? CurrentChannel => _model.Rows.Count > 0 ? _model.Rows[_row].Channel : null;
+
+    private GuideCell? Selected => _model.Rows.Count > 0
+        ? _model.Rows[_row].Cells.FirstOrDefault(InCell)
+        : null;
+
+    private bool InCell(GuideCell c) => _slot >= c.StartSlotIndex && _slot < c.StartSlotIndex + c.SpanSlots;
+
+    protected override void OnInitialized()
+    {
+        var now = DateTimeOffset.Now;
+        var minute = now.Minute < 30 ? 0 : 30;
+        _start = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, minute, 0, now.Offset);
+        Rebuild();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender) await _root.FocusAsync();
+    }
+
+    private void Rebuild() => _model = GuideModel.Build(Content.Current, _start, SlotCount, Slot);
+
+    private static bool IsNow(Programme p)
+    {
+        var n = DateTimeOffset.Now;
+        return p.Start <= n && n < p.Stop;
+    }
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "ArrowUp":
+                if (_row > 0) _row--;
+                break;
+            case "ArrowDown":
+                if (_row < _model.Rows.Count - 1) _row++;
+                break;
+            case "ArrowLeft":
+                if (_slot > 0) _slot--;
+                else { _start -= Slot; Rebuild(); }
+                break;
+            case "ArrowRight":
+                if (_slot < SlotCount - 1) _slot++;
+                else { _start += Slot; Rebuild(); }
+                break;
+            case "Enter":
+                if (CurrentChannel is { } ch) Nav.NavigateTo($"/?ch={ch.Number}");
+                break;
+            case "Escape":
+            case "g":
+            case "G":
+                Nav.NavigateTo("/");
+                break;
+        }
+    }
+}

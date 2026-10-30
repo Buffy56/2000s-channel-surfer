@@ -48,6 +48,17 @@
     protected override void OnInitialized()
     {
         _channels = Content.Current.Channels;
+
+        // Guide's Enter-to-tune arrives as /?ch=<number>.
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+        if (query.TryGetValue("ch", out var chv) && int.TryParse(chv, out var chNumber))
+        {
+            for (var i = 0; i < _channels.Count; i++)
+            {
+                if (_channels[i].Number == chNumber) { _index = i; break; }
+            }
+        }
+
         _ref = DotNetObjectReference.Create(this);
         _bannerTimer = new System.Timers.Timer(5000) { AutoReset = false };
         _bannerTimer.Elapsed += (_, _) => InvokeAsync(() =>
