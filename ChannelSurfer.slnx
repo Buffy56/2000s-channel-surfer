@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ChannelSurfer/ChannelSurfer.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ChannelSurfer.Tests/ChannelSurfer.Tests.csproj" />
+  </Folder>
+</Solution>
