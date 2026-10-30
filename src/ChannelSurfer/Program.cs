@@ -1,6 +1,7 @@
 using ChannelSurfer.Components;
 using ChannelSurfer.Proxy;
 using ChannelSurfer.Services;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,9 @@ builder.Services.AddRazorComponents()
 // Config volume (container sets CONFIG_DIR=/config; dev falls back to ./config).
 var configDir = Environment.GetEnvironmentVariable("CONFIG_DIR")
     ?? Path.Combine(builder.Environment.ContentRootPath, "config");
+// Persist data-protection keys on the volume so Blazor circuits survive container restarts.
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(configDir, "keys")));
 builder.Services.AddSingleton(new SettingsService(configDir));
 builder.Services.AddSingleton<HttpClient>();
 builder.Services.AddSingleton<SourceFetcher>();
