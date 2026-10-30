@@ -3,7 +3,7 @@
 @inject ContentService Content
 @inject IJSRuntime JS
 @inject NavigationManager Nav
-@implements IDisposable
+@implements IAsyncDisposable
 
 <PageTitle>Channel Surfer</PageTitle>
 
@@ -168,9 +168,12 @@
         return InvokeAsync(StateHasChanged);
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         _bannerTimer?.Dispose();
+        // Stop hls.js downloading segments after we leave the surf view.
+        try { await JS.InvokeVoidAsync("hlsInterop.destroy", _video); }
+        catch { /* circuit already gone */ }
         _ref?.Dispose();
     }
 }

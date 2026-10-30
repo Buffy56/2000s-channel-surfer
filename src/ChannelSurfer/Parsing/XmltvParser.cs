@@ -20,31 +20,51 @@ public static class XmltvParser
             .ToList();
 
         var programmes = root.Elements("programme")
-            .Select(p => new Programme(
-                (string?)p.Attribute("channel") ?? "",
-                (string?)p.Element("title") ?? "",
-                (string?)p.Element("desc"),
-                ParseTime((string?)p.Attribute("start")),
-                ParseTime((string?)p.Attribute("stop")),
-                (string?)p.Element("category")))
+            .Select(TryProgramme)
+            .Where(p => p is not null)
+            .Select(p => p!)
             .ToList();
 
         return (channels, programmes);
     }
 
-    /// <summary>XMLTV time is "YYYYMMDDHHMMSS [+/-HHMM]". The offset has no colon, so parse it by hand.</summary>
-    private static DateTimeOffset ParseTime(string? s)
+    // One malformed programme must not drop the whole guide: skip it, keep the rest.
+    private static Programme? TryProgramme(XElement p)
     {
-        if (string.IsNullOrWhiteSpace(s)) return default;
+        var start = ParseTime((string?)p.Attribute("start"));
+        var stop = ParseTime((string?)p.Attribute("stop"));
+        if (start is null || stop is null) return null;
+
+        return new Programme(
+            (string?)p.Attribute("channel") ?? "",
+            (string?)p.Element("title") ?? "",
+            (string?)p.Element("desc"),
+            start.Value,
+            stop.Value,
+            (string?)p.Element("category"));
+    }
+
+    /// <summary>XMLTV time is "YYYYMMDDHHMMSS [+/-HHMM]". The offset has no colon, so parse it by hand. Null if unparseable.</summary>
+    private static DateTimeOffset? ParseTime(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
         s = s.Trim();
 
-        var space = s.IndexOf(' ');
-        var datePart = space < 0 ? s : s[..space];
-        var offset = space < 0 ? TimeSpan.Zero : ParseOffset(s[(space + 1)..]);
+        try
+        {
+            var space = s.IndexOf(' ');
+            var datePart = space < 0 ? s : s[..space];
+            var offset = space < 0 ? TimeSpan.Zero : ParseOffset(s[(space + 1)..]);
 
-        var fmt = datePart.Length == 12 ? "yyyyMMddHHmm" : "yyyyMMddHHmmss";
-        var dt = DateTime.ParseExact(datePart, fmt, CultureInfo.InvariantCulture, DateTimeStyles.None);
-        return new DateTimeOffset(dt, offset);
+            var fmt = datePart.Length == 12 ? "yyyyMMddHHmm" : "yyyyMMddHHmmss";
+            if (!DateTime.TryParseExact(datePart, fmt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+                return null;
+            return new DateTimeOffset(dt, offset);
+        }
+        catch
+        {
+            return null; // malformed offset or out-of-range value
+        }
     }
 
     private static TimeSpan ParseOffset(string o)

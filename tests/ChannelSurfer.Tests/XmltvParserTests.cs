@@ -21,6 +21,17 @@ public class XmltvParserTests
     }
 
     [Fact]
+    public void Parse_SkipsProgrammeWithUnparseableTime()
+    {
+        var xml = "<tv>"
+            + "<programme start=\"20261030\" stop=\"20261030\" channel=\"c\"><title>Bad</title></programme>"
+            + "<programme start=\"20261030200000 +0000\" stop=\"20261030203000 +0000\" channel=\"c\"><title>Good</title></programme>"
+            + "</tv>";
+        var (_, progs) = XmltvParser.Parse(xml);
+        Assert.Equal("Good", Assert.Single(progs).Title);
+    }
+
+    [Fact]
     public void Parse_HonorsTimezoneOffset()
     {
         var xml = "<tv><programme start=\"20261030200000 +0100\" stop=\"20261030210000 +0100\" channel=\"c\">"
