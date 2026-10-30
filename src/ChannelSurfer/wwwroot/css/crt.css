@@ -1,0 +1,188 @@
+/* 2000s channel surfer — look ported from the approved CRT mockup (look-v2-crt.html). */
+:root {
+    --guide-top: #1b2a8f;
+    --guide-bot: #0a1240;
+    --cell: #2338b8;
+    --cell-alt: #1a2a9a;
+    --sel: #ffd21a;
+    --cyan: #53e0ff;
+    --ink: #eaf0ff;
+}
+
+html, body {
+    margin: 0;
+    height: 100%;
+    background: #02030a;
+    color: var(--ink);
+    font-family: "Arial Narrow", Arial, Helvetica, sans-serif;
+    overflow: hidden;
+}
+
+a { color: var(--cyan); }
+
+/* ---------------- Surf view ---------------- */
+.surf {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    outline: none;
+    overflow: hidden;
+}
+
+.tv-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #000;
+}
+
+.clk { position: absolute; top: 4%; right: 4%; font: 800 18px Arial; background: #0007; padding: 3px 9px; border-radius: 4px; }
+
+.entry {
+    position: absolute;
+    top: 5%;
+    right: 5%;
+    font: 800 64px/1 Arial;
+    color: var(--sel);
+    background: #000a;
+    padding: 6px 16px;
+    border-radius: 8px;
+}
+
+.stream-error {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font: 800 22px Arial;
+    color: #ffd2d2;
+    background: #300a;
+    padding: 16px 24px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.noch {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    font: 800 42px Arial;
+    color: var(--cyan);
+    text-align: center;
+}
+.noch span { font: 700 18px Arial; color: #9fb0e0; }
+
+/* Chunky banner — hidden below the screen, slides up when .show */
+.banner {
+    position: absolute;
+    left: 3.5%;
+    right: 3.5%;
+    bottom: 5%;
+    height: 112px;
+    display: flex;
+    gap: 14px;
+    padding: 12px 16px;
+    border-radius: 7px;
+    background: linear-gradient(180deg, rgba(39,66,201,.92), rgba(11,21,87,.92));
+    border: 2px solid #6c87ff;
+    box-shadow: inset 0 2px 0 #9ab0ff, 0 6px 18px #000a;
+    transform: translateY(160%);
+    transition: transform .28s cubic-bezier(.2,.8,.2,1);
+}
+.banner.show { transform: translateY(0); }
+
+.chbox {
+    width: 128px;
+    flex: 0 0 128px;
+    border-right: 2px solid #4258c9;
+    padding-right: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+.logo { width: 46px; height: 46px; border-radius: 6px; margin-bottom: 6px; object-fit: contain; background: #0b1557; }
+.chnum { font: 800 52px/1 Arial; color: var(--sel); }
+.chname { font: 700 15px Arial; color: #cfe; }
+
+.meta { flex: 1; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.now { font: 800 26px/1.1 Arial; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.next { color: #aab9ee; font: 700 16px Arial; margin-top: 2px; }
+.bar { height: 8px; border-radius: 5px; background: #0a124a; border: 1px solid #42d; margin-top: 10px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: linear-gradient(90deg, #53e0ff, #1b7cff); }
+
+/* ---------------- Guide ---------------- */
+.guide-page {
+    position: fixed;
+    inset: 0;
+    overflow: auto;
+    outline: none;
+    background: linear-gradient(180deg, var(--guide-top), var(--guide-bot));
+}
+
+.preview { padding: 14px 18px; background: #0a1030; border-bottom: 2px solid #3a4ec0; }
+.preview h3 { margin: 0 0 4px; font: 800 24px Arial; color: var(--sel); }
+.pv-meta { margin: 0 0 6px; color: #b9c6f2; font: 700 14px Arial; }
+.pv-desc { margin: 0; color: #9fb0e0; font: 400 14px/1.4 Arial; max-width: 70ch; }
+.pill { display: inline-block; font: 800 11px Arial; color: #061; background: #8df; padding: 2px 7px; border-radius: 10px; margin-right: 6px; }
+
+.guide-grid { padding-bottom: 20px; }
+.ghead, .grow { display: grid; grid-template-columns: 180px repeat(var(--slots), 1fr); }
+.ghead { position: sticky; top: 0; background: #0a1030; z-index: 2; }
+.ghead > div { padding: 9px 10px; font: 800 13px Arial; color: var(--cyan); letter-spacing: .5px; border-right: 1px solid #2a3a9a; }
+.grow { border-top: 1px solid #10205f; }
+.grow.rowsel { background: #0e1a55; }
+.gch { padding: 9px 10px; background: #0a1448; border-right: 2px solid #3a4ec0; display: flex; align-items: center; gap: 8px; }
+.gch b { color: var(--sel); font: 800 15px Arial; min-width: 28px; }
+.gch span { font: 700 13px Arial; color: #dfe8ff; }
+.cell { padding: 9px 10px; border-right: 1px solid #24319a; font: 700 13px Arial; background: var(--cell); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell.sel { background: var(--sel); color: #1a1300; box-shadow: inset 0 0 0 2px #fff6; }
+
+/* ---------------- Settings ---------------- */
+.settings-page { position: fixed; inset: 0; overflow: auto; padding: 32px; max-width: 720px; margin: 0 auto; background: linear-gradient(180deg, var(--guide-top), var(--guide-bot)); }
+.settings-page h1 { font: 800 28px Arial; color: var(--sel); margin: 0 0 20px; }
+.fld { display: block; margin: 0 0 16px; font: 700 14px Arial; color: #cfe; }
+.fld input { display: block; width: 100%; margin-top: 6px; padding: 10px; font: 400 15px Arial; border-radius: 6px; border: 2px solid #3a4ec0; background: #0a1448; color: var(--ink); }
+.chk { display: flex; align-items: center; gap: 8px; font: 700 14px Arial; color: #cfe; margin: 0 0 20px; }
+.btn { font: 800 15px Arial; color: #1a1300; background: var(--sel); border: 0; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+.btn:disabled { opacity: .6; cursor: default; }
+.status { margin: 22px 0; font: 400 14px Arial; color: #b9c6f2; }
+.status .ok { color: #8df3a0; font-weight: 800; }
+.status .err { color: #ff9a9a; font-weight: 800; }
+
+/* ---------------- CRT effect (toggled by body.crt) ---------------- */
+body.crt .glow { text-shadow: 0 0 6px rgba(120,180,255,.55), -0.6px 0 rgba(255,60,60,.5), 0.6px 0 rgba(60,120,255,.5); }
+body.crt .bar > i { box-shadow: 0 0 10px #53e0ff; }
+body.crt .cell.sel { box-shadow: inset 0 0 0 2px #fff6, 0 0 18px #ffd21a88; }
+
+/* Scanlines + vignette + faint flicker, as a fixed overlay above everything (purely visual). */
+body.crt::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.26) 0 1px, transparent 1px 3px);
+    mix-blend-mode: multiply;
+}
+body.crt::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 9001;
+    pointer-events: none;
+    background: radial-gradient(130% 120% at 50% 50%, transparent 58%, rgba(0,0,0,.5) 100%);
+    animation: crt-flicker 5.5s steps(60) infinite;
+}
+@keyframes crt-flicker {
+    0%, 97% { opacity: 1; }
+    98% { opacity: .92; }
+    99% { opacity: .97; }
+    100% { opacity: 1; }
+}

@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@inject SettingsService SettingsSvc
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -8,11 +9,12 @@
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["ChannelSurfer.styles.css"]" />
+    <link rel="stylesheet" href="css/crt.css" />
     <ImportMap />
     <HeadOutlet />
 </head>
 
-<body>
+<body class="@(SettingsSvc.Get().CrtEnabled ? "crt" : "")">
     <Routes />
     <ReconnectModal />
     <script src="lib/hls.min.js"></script>
