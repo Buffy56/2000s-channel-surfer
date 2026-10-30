@@ -1,0 +1,7 @@
+bin/
+obj/
+.superpowers/
+.vs/
+.DS_Store
+appsettings.*.local.json
+config/
