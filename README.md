@@ -11,6 +11,12 @@ Prevue-style grid guide, driven by your own m3u playlist and XMLTV schedule.
 - **Settings** (`/settings`): set the playlist and XMLTV sources (file path or
   URL), the refresh interval, and the CRT toggle. Saved to the config volume.
 
+Streams are played in the browser: **HLS** (`.m3u8`) via `hls.js` and live
+**MPEG-TS** (`.ts`, e.g. ErsatzTV) via `mpegts.js`. The backend proxies streams
+and logos so the browser never talks to the IPTV server directly.
+
+Built with ASP.NET Core + Blazor Server (.NET 10).
+
 ## Run with Docker
 
 ```bash
@@ -32,3 +38,7 @@ dotnet test                                 # unit tests for parsing/scheduling
 
 In development, config defaults to `./src/ChannelSurfer/config` (override with
 the `CONFIG_DIR` environment variable).
+
+## License
+
+[MIT](LICENSE)
