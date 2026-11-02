@@ -7,7 +7,7 @@
 
 <PageTitle>Channel Surfer</PageTitle>
 
-<div class="surf" tabindex="0" @ref="_root" @onkeydown="OnKeyDown" @onkeydown:preventDefault="true">
+<div class="surf" tabindex="0" @ref="_root" @onkeydown="OnKeyDown" @onkeydown:preventDefault="true" @onclick="ToggleControls">
     @if (_channels.Count == 0)
     {
         <div class="noch glow">
@@ -28,6 +28,14 @@
         {
             <div class="entry glow">@_entry</div>
         }
+
+        @* Touch controls — shown only on coarse-pointer (touch) devices via CSS. *@
+        <div class="touch-controls @(_controlsVisible ? "show" : "")">
+            <button class="touch-btn" @onclick="() => TouchFlip(1)" @onclick:stopPropagation="true" aria-label="Channel up">▲</button>
+            <button class="touch-btn" @onclick="() => TouchFlip(-1)" @onclick:stopPropagation="true" aria-label="Channel down">▼</button>
+            <button class="touch-btn wide" @onclick="OpenGuide" @onclick:stopPropagation="true">Guide</button>
+            <button class="touch-btn" @onclick="ToggleFullscreen" @onclick:stopPropagation="true" aria-label="Fullscreen">⛶</button>
+        </div>
     }
 </div>
 
@@ -44,6 +52,9 @@
     private string? _error;
     private string _entry = "";
     private System.Timers.Timer? _bannerTimer;
+    private System.Timers.Timer? _controlsTimer;
+    private bool _controlsVisible = true; // shown on load (touch), then auto-hides
+    private bool _isIos;
 
     private Channel? Cur => _channels.Count > 0 ? _channels[_index] : null;
 
@@ -68,15 +79,23 @@
             _bannerVisible = false;
             StateHasChanged();
         });
+        _controlsTimer = new System.Timers.Timer(4000) { AutoReset = false };
+        _controlsTimer.Elapsed += (_, _) => InvokeAsync(() =>
+        {
+            _controlsVisible = false;
+            StateHasChanged();
+        });
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && _channels.Count > 0)
         {
+            _isIos = await JS.InvokeAsync<bool>("hlsInterop.isIos");
             await TuneAsync();
             await _root.FocusAsync();
             await JS.InvokeVoidAsync("hlsInterop.guideHint", _root, _hint);
+            RestartControlsTimer(); // auto-hide the initially-shown touch controls
         }
     }
 
@@ -85,8 +104,19 @@
         _error = null;
         ComputeNowNext();
         ShowBanner();
-        var url = "/proxy/stream?u=" + Uri.EscapeDataString(Cur!.StreamUrl);
-        var kind = Cur.StreamUrl.Split('?')[0].EndsWith(".ts", StringComparison.OrdinalIgnoreCase) ? "ts" : "hls";
+
+        var kind = Cur!.StreamUrl.Split('?')[0].EndsWith(".ts", StringComparison.OrdinalIgnoreCase) ? "ts" : "hls";
+
+        // iPhone/iPad can't play MPEG-TS — point the viewer at the HLS browser-only channels.
+        if (_isIos && kind == "ts")
+        {
+            await JS.InvokeVoidAsync("hlsInterop.destroy", _video);
+            _error = "This channel doesn't play on iPhone. Switch to a Browser-Only channel (100+).";
+            StateHasChanged();
+            return;
+        }
+
+        var url = "/proxy/stream?u=" + Uri.EscapeDataString(Cur.StreamUrl);
         await JS.InvokeVoidAsync("hlsInterop.attach", _video, url, kind, _ref);
         StateHasChanged();
     }
@@ -108,6 +138,33 @@
     {
         _index = (_index + delta + _channels.Count) % _channels.Count;
         await TuneAsync();
+    }
+
+    // --- Touch controls ---
+    private void ToggleControls()
+    {
+        _controlsVisible = !_controlsVisible;
+        if (_controlsVisible) RestartControlsTimer();
+    }
+
+    private void RestartControlsTimer()
+    {
+        _controlsTimer!.Stop();
+        _controlsTimer.Start();
+    }
+
+    private async Task TouchFlip(int delta)
+    {
+        RestartControlsTimer();
+        await Flip(delta);
+    }
+
+    private void OpenGuide() => Nav.NavigateTo("/guide");
+
+    private async Task ToggleFullscreen()
+    {
+        RestartControlsTimer();
+        await JS.InvokeVoidAsync("hlsInterop.fullscreen", _video);
     }
 
     private async Task TuneToNumber(int number)
@@ -143,7 +200,7 @@
                 break;
             case "f":
             case "F":
-                await JS.InvokeVoidAsync("hlsInterop.fullscreen");
+                await JS.InvokeVoidAsync("hlsInterop.fullscreen", _video);
                 break;
             case "Escape":
                 _bannerVisible = false;
@@ -175,6 +232,7 @@
     public async ValueTask DisposeAsync()
     {
         _bannerTimer?.Dispose();
+        _controlsTimer?.Dispose();
         // Stop hls.js downloading segments after we leave the surf view.
         try { await JS.InvokeVoidAsync("hlsInterop.destroy", _video); }
         catch { /* circuit already gone */ }

@@ -175,6 +175,64 @@ a { color: var(--cyan); }
 .status .ok { color: #8df3a0; font-weight: 800; }
 .status .err { color: #ff9a9a; font-weight: 800; }
 
+/* ---------------- Touch / mobile (coarse-pointer devices only) ---------------- */
+.touch-controls { display: none; }
+.touch-only { display: none; }
+
+@media (pointer: coarse) {
+    .guide-hint { display: none; } /* a keyboard hint is useless on touch */
+
+    .touch-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 30;
+        opacity: 0;
+        transition: opacity .25s;
+        pointer-events: none;
+    }
+    .touch-controls.show { opacity: 1; pointer-events: auto; }
+
+    .touch-btn {
+        min-width: 60px;
+        min-height: 60px;
+        padding: 0 16px;
+        border-radius: 14px;
+        border: 2px solid #6c87ff;
+        background: rgba(11, 21, 87, .85);
+        color: var(--ink);
+        font: 800 22px Arial;
+        cursor: pointer;
+    }
+    .touch-btn.wide { font-size: 15px; letter-spacing: .5px; }
+
+    .touch-only { display: flex; align-items: center; justify-content: center; }
+
+    .guide-back {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        z-index: 40;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 2px solid #6c87ff;
+        background: rgba(11, 21, 87, .9);
+        color: var(--ink);
+        font: 800 20px Arial;
+        cursor: pointer;
+    }
+
+    /* Guide scrolls horizontally with readable, tappable columns on a phone. */
+    .guide-grid { width: max-content; min-width: 100%; }
+    .ghead, .grow { grid-template-columns: 110px repeat(var(--slots), 140px); }
+    .cell, .gch { padding: 14px 10px; }
+}
+
 /* ---------------- CRT effect (toggled by body.crt) ---------------- */
 body.crt .glow { text-shadow: 0 0 6px rgba(120,180,255,.55), -0.6px 0 rgba(255,60,60,.5), 0.6px 0 rgba(60,120,255,.5); }
 body.crt .bar > i { box-shadow: 0 0 10px #53e0ff; }
