@@ -92,6 +92,9 @@
         if (firstRender && _channels.Count > 0)
         {
             _isIos = await JS.InvokeAsync<bool>("hlsInterop.isIos");
+            // On iOS, open straight to a playable (HLS) channel if we'd start on an MPEG-TS one.
+            if (_isIos && _channels[_index].IsMpegTs)
+                _index = ChannelNav.NextPlayableIndex(_channels, _index, +1, restrictToHls: true);
             await TuneAsync();
             await _root.FocusAsync();
             await JS.InvokeVoidAsync("hlsInterop.guideHint", _root, _hint);
@@ -105,7 +108,7 @@
         ComputeNowNext();
         ShowBanner();
 
-        var kind = Cur!.StreamUrl.Split('?')[0].EndsWith(".ts", StringComparison.OrdinalIgnoreCase) ? "ts" : "hls";
+        var kind = Cur!.IsMpegTs ? "ts" : "hls";
 
         // iPhone/iPad can't play MPEG-TS — point the viewer at the HLS browser-only channels.
         if (_isIos && kind == "ts")
@@ -136,7 +139,8 @@
 
     private async Task Flip(int delta)
     {
-        _index = (_index + delta + _channels.Count) % _channels.Count;
+        // On iOS, skip MPEG-TS channels (unplayable there).
+        _index = ChannelNav.NextPlayableIndex(_channels, _index, delta, _isIos);
         await TuneAsync();
     }
 
