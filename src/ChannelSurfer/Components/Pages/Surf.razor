@@ -35,6 +35,10 @@
             <button class="touch-btn" @onclick="() => TouchFlip(-1)" @onclick:stopPropagation="true" aria-label="Channel down">▼</button>
             <button class="touch-btn wide" @onclick="OpenGuide" @onclick:stopPropagation="true">Guide</button>
             <button class="touch-btn" @onclick="ToggleFullscreen" @onclick:stopPropagation="true" aria-label="Fullscreen">⛶</button>
+            @if (_isIos && Cur is not null && !Cur.IsMpegTs)
+            {
+                <button class="touch-btn wide" @onclick="Airplay" @onclick:stopPropagation="true">AirPlay</button>
+            }
         </div>
     }
 </div>
@@ -55,6 +59,7 @@
     private System.Timers.Timer? _controlsTimer;
     private bool _controlsVisible = true; // shown on load (touch), then auto-hides
     private bool _isIos;
+    private bool _hasChParam;
 
     private Channel? Cur => _channels.Count > 0 ? _channels[_index] : null;
 
@@ -64,6 +69,7 @@
 
         // Guide's Enter-to-tune arrives as /?ch=<number>.
         var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(Nav.Uri).Query);
+        _hasChParam = query.ContainsKey("ch");
         if (query.TryGetValue("ch", out var chv) && int.TryParse(chv, out var chNumber))
         {
             for (var i = 0; i < _channels.Count; i++)
@@ -91,7 +97,17 @@
     {
         if (firstRender && _channels.Count > 0)
         {
+            // Mobile: open on the guide the first time the app loads this session (not on a direct tune).
+            if (!_hasChParam && await JS.InvokeAsync<bool>("hlsInterop.claimMobileFirstLoad"))
+            {
+                Nav.NavigateTo("/guide");
+                return;
+            }
+
             _isIos = await JS.InvokeAsync<bool>("hlsInterop.isIos");
+            // On iOS, open straight to a playable (HLS) channel if we'd start on an MPEG-TS one.
+            if (_isIos && _channels[_index].IsMpegTs)
+                _index = ChannelNav.NextPlayableIndex(_channels, _index, +1, restrictToHls: true);
             await TuneAsync();
             await _root.FocusAsync();
             await JS.InvokeVoidAsync("hlsInterop.guideHint", _root, _hint);
@@ -105,7 +121,7 @@
         ComputeNowNext();
         ShowBanner();
 
-        var kind = Cur!.StreamUrl.Split('?')[0].EndsWith(".ts", StringComparison.OrdinalIgnoreCase) ? "ts" : "hls";
+        var kind = Cur!.IsMpegTs ? "ts" : "hls";
 
         // iPhone/iPad can't play MPEG-TS — point the viewer at the HLS browser-only channels.
         if (_isIos && kind == "ts")
@@ -136,7 +152,8 @@
 
     private async Task Flip(int delta)
     {
-        _index = (_index + delta + _channels.Count) % _channels.Count;
+        // On iOS, skip MPEG-TS channels (unplayable there).
+        _index = ChannelNav.NextPlayableIndex(_channels, _index, delta, _isIos);
         await TuneAsync();
     }
 
@@ -165,6 +182,12 @@
     {
         RestartControlsTimer();
         await JS.InvokeVoidAsync("hlsInterop.fullscreen", _video);
+    }
+
+    private async Task Airplay()
+    {
+        RestartControlsTimer();
+        await JS.InvokeVoidAsync("hlsInterop.airplay", _video);
     }
 
     private async Task TuneToNumber(int number)

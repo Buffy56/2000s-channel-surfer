@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject ContentService Content
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Guide</PageTitle>
 
@@ -47,7 +48,8 @@
             {
                 var row = _model.Rows[r];
                 var rowSelected = r == _row;
-                <div class="grow @(rowSelected ? "rowsel" : "")">
+                var disabled = _isIos && row.Channel.IsMpegTs; // unplayable on iOS → greyed + inert
+                <div class="grow @(rowSelected ? "rowsel" : "") @(disabled ? "disabled" : "")">
                     <div class="gch"><b>@row.Channel.Number</b><span>@row.Channel.Name</span></div>
                     @foreach (var cell in row.Cells)
                     {
@@ -73,6 +75,7 @@
         DateTimeOffset.Now, SlotCount, Slot);
     private int _row;
     private int _slot;
+    private bool _isIos;
 
     private Channel? CurrentChannel => _model.Rows.Count > 0 ? _model.Rows[_row].Channel : null;
 
@@ -92,7 +95,12 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender) await _root.FocusAsync();
+        if (firstRender)
+        {
+            await _root.FocusAsync();
+            _isIos = await JS.InvokeAsync<bool>("hlsInterop.isIos");
+            StateHasChanged(); // re-render so iOS greying applies
+        }
     }
 
     private void Rebuild() => _model = GuideModel.Build(Content.Current, _start, SlotCount, Slot);
