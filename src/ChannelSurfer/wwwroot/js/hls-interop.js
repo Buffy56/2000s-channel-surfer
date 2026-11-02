@@ -70,9 +70,19 @@ window.hlsInterop = (function () {
             if (video) { try { video.removeAttribute('src'); video.load(); } catch (e) { /* ignore */ } }
         },
 
-        fullscreen: function () {
-            if (document.fullscreenElement) { document.exitFullscreen(); }
-            else { document.documentElement.requestFullscreen().catch(function () {}); }
+        fullscreen: function (video) {
+            if (document.fullscreenElement) { document.exitFullscreen(); return; }
+            var el = document.documentElement;
+            if (el.requestFullscreen) {
+                el.requestFullscreen().catch(function () {});
+            } else if (video && video.webkitEnterFullscreen) {
+                video.webkitEnterFullscreen(); // iOS Safari: only the video can go fullscreen
+            }
+        },
+
+        isIos: function () {
+            var ua = navigator.userAgent || '';
+            return /iPhone|iPad|iPod/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1);
         },
 
         // Flash a "Press G for Guide" hint on mouse move, then fade it out.

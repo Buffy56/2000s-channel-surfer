@@ -15,6 +15,7 @@
     }
     else
     {
+        <button class="guide-back touch-only" @onclick="GoBack" aria-label="Back to TV">✕</button>
         <div class="preview">
             <h3 class="glow">@(Selected?.Title ?? "No info")</h3>
             <p class="pv-meta">
@@ -50,7 +51,8 @@
                     <div class="gch"><b>@row.Channel.Number</b><span>@row.Channel.Name</span></div>
                     @foreach (var cell in row.Cells)
                     {
-                        <div class="cell @(rowSelected && InCell(cell) ? "sel" : "")" style="grid-column:span @cell.SpanSlots">
+                        <div class="cell @(rowSelected && InCell(cell) ? "sel" : "")" style="grid-column:span @cell.SpanSlots"
+                             @onclick="() => Tune(row.Channel.Number)">
                             @cell.Title
                         </div>
                     }
@@ -94,6 +96,10 @@
     }
 
     private void Rebuild() => _model = GuideModel.Build(Content.Current, _start, SlotCount, Slot);
+
+    private void Tune(int channelNumber) => Nav.NavigateTo($"/?ch={channelNumber}");
+
+    private void GoBack() => Nav.NavigateTo("/");
 
     private static bool IsNow(Programme p)
     {
