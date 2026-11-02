@@ -85,6 +85,26 @@ window.hlsInterop = (function () {
             return /iPhone|iPad|iPod/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1);
         },
 
+        // True once per session on a touch device — used to open on the guide the first time.
+        claimMobileFirstLoad: function () {
+            if (!window.matchMedia('(pointer: coarse)').matches) return false;
+            if (sessionStorage.getItem('cs_started')) return false;
+            sessionStorage.setItem('cs_started', '1');
+            return true;
+        },
+
+        // Report AirPlay target availability to .NET so the button can show only when relevant.
+        setupAirplay: function (video, dotnet) {
+            if (!video || !window.WebKitPlaybackTargetAvailabilityEvent) return;
+            video.addEventListener('webkitplaybacktargetavailabilitychanged', function (e) {
+                if (dotnet) dotnet.invokeMethodAsync('OnAirplayAvailable', e.availability === 'available');
+            });
+        },
+
+        airplay: function (video) {
+            if (video && video.webkitShowPlaybackTargetPicker) video.webkitShowPlaybackTargetPicker();
+        },
+
         // Flash a "Press G for Guide" hint on mouse move, then fade it out.
         // The listener lives on the surf element, so it dies when the page navigates away.
         guideHint: function (surfEl, hintEl) {
