@@ -1,6 +1,6 @@
 // Bridge between Blazor and the browser video players.
 // kind "ts"  -> mpegts.js (live MPEG-TS, e.g. ErsatzTV)
-// kind "hls" -> hls.js (.m3u8), falling back to native HLS
+// kind "hls" -> native HLS on iOS (AirPlay-capable), hls.js elsewhere
 window.hlsInterop = (function () {
     const instances = new WeakMap(); // video -> { kind, inst }
 
@@ -22,6 +22,18 @@ window.hlsInterop = (function () {
 
     function fail(dotnet, msg) {
         if (dotnet) dotnet.invokeMethodAsync('OnStreamError', String(msg));
+    }
+
+    function iosDevice() {
+        var ua = navigator.userAgent || '';
+        return /iPhone|iPad|iPod/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1);
+    }
+
+    // Native HLS playback (Safari/iOS) — AirPlay-capable. onX assignment avoids listener buildup.
+    function playNative(video, url, dotnet) {
+        video.src = url;
+        video.onloadedmetadata = function () { video.play().catch(function () {}); };
+        video.onerror = function () { fail(dotnet, 'native playback error'); };
     }
 
     return {
@@ -47,7 +59,12 @@ window.hlsInterop = (function () {
                 return;
             }
 
-            if (window.Hls && window.Hls.isSupported()) {
+            var nativeHls = !!video.canPlayType('application/vnd.apple.mpegurl');
+            // On iOS, use native HLS so the video is AirPlay-capable. Everywhere else prefer hls.js
+            // (Chrome reports "maybe" for native HLS but can't play it reliably). Native is the last resort.
+            if (iosDevice() && nativeHls) {
+                playNative(video, url, dotnet);
+            } else if (window.Hls && window.Hls.isSupported()) {
                 const hls = new window.Hls({ enableWorker: true, lowLatencyMode: true });
                 hls.on(window.Hls.Events.ERROR, function (_evt, data) {
                     if (data.fatal) fail(dotnet, data.details || data.type || 'error');
@@ -56,10 +73,8 @@ window.hlsInterop = (function () {
                 hls.loadSource(url);
                 hls.attachMedia(video);
                 instances.set(video, { kind: "hls", inst: hls });
-            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
-                video.addEventListener('loadedmetadata', function () { video.play().catch(function () {}); });
-                video.addEventListener('error', function () { fail(dotnet, 'native playback error'); });
+            } else if (nativeHls) {
+                playNative(video, url, dotnet);
             } else {
                 fail(dotnet, 'HLS not supported in this browser');
             }
@@ -81,8 +96,7 @@ window.hlsInterop = (function () {
         },
 
         isIos: function () {
-            var ua = navigator.userAgent || '';
-            return /iPhone|iPad|iPod/.test(ua) || (/Mac/.test(ua) && navigator.maxTouchPoints > 1);
+            return iosDevice();
         },
 
         // True once per session on a touch device — used to open on the guide the first time.
@@ -91,14 +105,6 @@ window.hlsInterop = (function () {
             if (sessionStorage.getItem('cs_started')) return false;
             sessionStorage.setItem('cs_started', '1');
             return true;
-        },
-
-        // Report AirPlay target availability to .NET so the button can show only when relevant.
-        setupAirplay: function (video, dotnet) {
-            if (!video || !window.WebKitPlaybackTargetAvailabilityEvent) return;
-            video.addEventListener('webkitplaybacktargetavailabilitychanged', function (e) {
-                if (dotnet) dotnet.invokeMethodAsync('OnAirplayAvailable', e.availability === 'available');
-            });
         },
 
         airplay: function (video) {

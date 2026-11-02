@@ -35,7 +35,7 @@
             <button class="touch-btn" @onclick="() => TouchFlip(-1)" @onclick:stopPropagation="true" aria-label="Channel down">▼</button>
             <button class="touch-btn wide" @onclick="OpenGuide" @onclick:stopPropagation="true">Guide</button>
             <button class="touch-btn" @onclick="ToggleFullscreen" @onclick:stopPropagation="true" aria-label="Fullscreen">⛶</button>
-            @if (_airplayAvailable)
+            @if (_isIos && Cur is not null && !Cur.IsMpegTs)
             {
                 <button class="touch-btn wide" @onclick="Airplay" @onclick:stopPropagation="true">AirPlay</button>
             }
@@ -60,7 +60,6 @@
     private bool _controlsVisible = true; // shown on load (touch), then auto-hides
     private bool _isIos;
     private bool _hasChParam;
-    private bool _airplayAvailable;
 
     private Channel? Cur => _channels.Count > 0 ? _channels[_index] : null;
 
@@ -112,7 +111,6 @@
             await TuneAsync();
             await _root.FocusAsync();
             await JS.InvokeVoidAsync("hlsInterop.guideHint", _root, _hint);
-            if (_isIos) await JS.InvokeVoidAsync("hlsInterop.setupAirplay", _video, _ref);
             RestartControlsTimer(); // auto-hide the initially-shown touch controls
         }
     }
@@ -190,13 +188,6 @@
     {
         RestartControlsTimer();
         await JS.InvokeVoidAsync("hlsInterop.airplay", _video);
-    }
-
-    [JSInvokable]
-    public Task OnAirplayAvailable(bool available)
-    {
-        _airplayAvailable = available;
-        return InvokeAsync(StateHasChanged);
     }
 
     private async Task TuneToNumber(int number)
